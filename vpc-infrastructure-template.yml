@@ -1,0 +1,314 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creates:
+  - 1 vpc with cdirblock assign
+  - 2 pub sub in your choice of AZ with cdirblock assign and public IPs enabled
+  - 2 priv sub in your choice of AZ with cdirblock assign and public IPs disabled
+  - 1 IGW attached to the vpc
+  - 1 pub route table associated to the pub sub
+  - 1 priv route table associated to the priv sub
+  - 1 network ACL for pub sub with all inbound/outbound rules allow
+  - 1 network ACL for priv sub with local IPs ssh inbound access and all outbout rules allow 
+
+  !!WARNING!! If you choose to rename anything in this template, please make sure you update all the "!Ref" value.
+
+Parameters:
+  CidrBlockAssignment: # parameter name
+    Description: Will assign a CidrBlock to your vpc and subnets depending on your AllowedValue choice
+    Type: String # will prompt you to select the value it will refer to for the cidrblock
+    Default: development
+    AllowedValues: [development, test, production]
+    ConstraintDescription: must be development or test or production
+
+  VpcTenancy: # parameter name
+    Type: String # will prompt you to select a default or dedicated host server. set on 'Default' by default
+    Default: default
+    AllowedValues:
+      - default
+      - dedicated
+  VpcTagKey: # parameter name
+    Description: Custom vpc tag key
+    Type: String # will prompt you to input a key tag for your vpc (exp: Key=Name)
+    Default: Name
+  VpcTagValue: # parameter name
+    Description: Custom vpc tag value
+    Type: String # will prompt you to input a key value for your vpc (exp: Value=production-vpc)
+    Default: test-vpc
+
+  PublicSubnet1AZ: # parameter name
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name # will prompt you to select an AZ.
+    Default: us-east-1a
+
+  PublicSubnet2AZ: # parameter name
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1b
+
+  PrivateSubnet1AZ: # parameter name
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1c
+
+  PrivateSubnet2AZ: # parameter name
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1d
+
+Mappings:
+  VpcEnvironmentMap: # map name
+    development: # will assign this cdirblock to the vpc if value 'development' is selected in CidrBlockAssignment parameter'
+      CidrBlock: 192.168.0.0/20
+    test: # will assign this cdirblock to the vpc if value 'test' is selected in CidrBlockAssignment parameter'
+      CidrBlock: 10.0.0.0/16
+    production: # will assign this cdirblock to the vpc if value 'production' is selected in CidrBlockAssignment parameter'
+      CidrBlock: 10.0.0.0/20
+
+  PubSub1CidrBlockMap: # map name
+    development: # will assign this cdirblock to this subnet if value 'development' is selected in CidrBlockAssignment parameter'
+      CidrBlock: 192.168.0.0/22
+    test: # will assign this cdirblock to this subnet if value 'test' is selected in CidrBlockAssignment parameter'
+      CidrBlock: 10.0.0.0/18
+    production: # will assign this cdirblock to this subnet if value 'production' is selected in CidrBlockAssignment parameter'
+      CidrBlock: 10.0.0.0/22
+
+  PubSub2CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.4.0/22
+    test:
+      CidrBlock: 10.0.64.0/18
+    production:
+      CidrBlock: 10.0.4.0/22
+
+  PrivSub1CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.8.0/22
+    test:
+      CidrBlock: 10.0.128.0/18
+    production:
+      CidrBlock: 10.0.8.0/22
+
+  PrivSub2CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.12.0/22
+    test:
+      CidrBlock: 10.0.192.0/18
+    production:
+      CidrBlock: 10.0.14.0/23
+
+Resources: 
+  VPC: # resource name
+    Type: AWS::EC2::VPC # creates a vcp
+    Properties:
+      CidrBlock: !FindInMap [VpcEnvironmentMap, !Ref CidrBlockAssignment, CidrBlock] # this entry will pull the value from the referred mappings
+      EnableDnsHostnames: True # enable DNS hostnames for instances launched in this VPC. change to 'False' to disable
+      EnableDnsSupport: True # enable DNS resolution support for the vpc. change to 'False' to disable
+      InstanceTenancy: !Ref VpcTenancy # this entry will pull the value from the referred string in the template
+      Tags:
+        - Key: !Ref VpcTagKey
+          Value: !Ref VpcTagValue
+
+  PublicSubnet1: # resource name
+    Type: AWS::EC2::Subnet # creates subnet
+    Properties: 
+      AvailabilityZone: !Ref PublicSubnet1AZ
+      CidrBlock: !FindInMap [PubSub1CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: True # enable auto assign public ip for instances launched in this subnet. change to 'False' to disable
+      Tags: # will tag your subnet. feel free to mofify the value in this template before launching.
+        - Key: Name
+          Value: PubSub1
+      VpcId: !Ref VPC 
+
+  PublicSubnet2: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PublicSubnet2AZ
+      CidrBlock: !FindInMap [PubSub2CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: True
+      Tags:
+        - Key: Name
+          Value: PubSub2
+      VpcId: !Ref VPC 
+
+  PrivateSubnet1: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PrivateSubnet1AZ 
+      CidrBlock: !FindInMap [PrivSub1CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: False # disable auto assign public ip for instances launched in this subnet. change to 'True' to enable
+      Tags:
+        - Key: Name
+          Value: PrivSub1
+      VpcId: !Ref VPC
+
+  PrivateSubnet2: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PrivateSubnet2AZ
+      CidrBlock: !FindInMap [PrivSub2CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: False
+      Tags:
+        - Key: Name
+          Value: PrivSub2
+      VpcId: !Ref VPC
+
+  IGW: # resource name
+    Type: AWS::EC2::InternetGateway # create Internet gateway
+    Properties:
+      Tags: # will tag your internet gateway. feel free to mofify the values in this template before launching.
+        - Key: Name
+          Value: Igw
+  IgwVpcAttachment: # resource name
+    Type: AWS::EC2::VPCGatewayAttachment # attach internet gateway to the referred vpc
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IGW
+
+  PublicRouteTable: # resource name
+    Type: 'AWS::EC2::RouteTable' # creates a route table
+    Properties:
+      VpcId: !Ref VPC
+      Tags: # will tag your route table. feel free to mofify the values in this template before launching.
+        - Key: Name
+          Value: PubRoute
+  PublicRoute: # resource name
+    Type: 'AWS::EC2::Route'
+    DependsOn: IgwVpcAttachment # will attach the igw to the vpc before creating this route for internet access
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW 
+  PublicSubnet1RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation' # associate the referred subnet to the referred route table
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet2RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable: # resource name
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags: # will tag your route table. feel free to mofify the values in this template before launching.
+        - Key: Name
+          Value: PrivRoute
+  PrivateSubnet1RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet2RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PublicNacl: # resource name
+      Type: AWS::EC2::NetworkAcl # creates a Network ACl
+      Properties:
+         VpcId: !Ref VPC
+         Tags: # will tag your Network ACl. feel free to mofify the values in this template before launching.
+         - Key: Name
+           Value: PubNacl
+  PublicNaclInbound: # resource name
+    Type: AWS::EC2::NetworkAclEntry # creates a rule
+    Properties: 
+       NetworkAclId: !Ref PublicNacl
+       RuleNumber: 100
+       Protocol: -1 # for all protocole. if you choose a specific protocol, make sure to include the PortRange properties to this entry.
+       RuleAction: allow
+       CidrBlock: 0.0.0.0/0
+  PublicNaclOutbound: # resource name
+    Type: AWS::EC2::NetworkAclEntry 
+    Properties:
+       NetworkAclId: !Ref PublicNacl
+       RuleNumber: 100
+       Protocol: -1
+       Egress: True # include Egress property for outbout rules
+       RuleAction: allow
+       CidrBlock: 0.0.0.0/0
+  PublicSubnet1NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation' # associate the referred subnet to the refferd Nacl
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      NetworkAclId: !Ref PublicNacl
+  PublicSubnet2NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      NetworkAclId: !Ref PublicNacl
+
+  PrivateNacl: # resource name
+      Type: AWS::EC2::NetworkAcl
+      Properties:
+         VpcId: !Ref VPC
+         Tags: # will tag your Network ACl. feel free to mofify the values in this template before launching.
+         - Key: Name
+           Value: PrivNacl
+  PrivNaclInbound: # resource name
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+       NetworkAclId: !Ref PrivateNacl
+       RuleNumber: 100
+       Protocol: 6
+       RuleAction: allow
+       PortRange:
+        From: 22 # for ssh ibound access
+        To: 22
+       CidrBlock: !FindInMap [VpcEnvironmentMap, !Ref CidrBlockAssignment, CidrBlock]
+  PrivNaclOutbound: # resource name
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+       NetworkAclId: !Ref PrivateNacl
+       RuleNumber: 100
+       Protocol: -1
+       RuleAction: allow
+       Egress: True
+       CidrBlock: 0.0.0.0/0
+  PrivSubnet1NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      NetworkAclId: !Ref PrivateNacl
+  PrivSubnet2NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      NetworkAclId: !Ref PrivateNacl
+
+Outputs:
+  VPC: # output name
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-Vpc' # this entry with pseudo parameter will use the stack name combine with '-Vpc' as the value
+
+  PublicSubnet1: # output name
+    Description: The subnet ID to use for public web servers
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub '${AWS::StackName}-pubsub1' # this entry with pseudo parameter will use the stack name combine with '-pubsub1' as the value
+
+  PublicSubnet2: # output name
+    Description: The subnet ID to use for public web servers
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub '${AWS::StackName}-pubsub2' # this entry with pseudo parameter will use the stack name combine with '-pubsub2' as the value
+
+  PrivateSubnet1: # output name
+    Description: The subnet ID to use for private web servers
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub '${AWS::StackName}-privsub1' # this entry with pseudo parameter will use the stack name combine with '-privsub1' as the value
+
+  PrivateSubnet2: # output name
+    Description: The subnet ID to use for private web servers
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub '${AWS::StackName}-privsub2' # this entry with pseudo parameter will use the stack name combine with '-privsub2' as the value
+
+# feel free to rename any parameters name, map name, resource name and output name. but before make sure you read the !!WARNING!! in the TEMPLATE DESCRPTION
