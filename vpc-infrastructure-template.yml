@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   Creates:
   - 1 vpc with cdirblock assign
-  - 2 pub sub in your choice of AZ with cdirblock assign and public IPs enabled
-  - 2 priv sub in your choice of AZ with cdirblock assign and public IPs disabled
+  - 4 pub sub in your choice of AZ with cdirblock assign and public IPs enabled
+  - 4 priv sub in your choice of AZ with cdirblock assign and public IPs disabled
   - 1 IGW attached to the vpc
   - 1 pub route table associated to the pub sub
   - 1 priv route table associated to the priv sub
@@ -13,47 +13,54 @@ Description: >-
   !!WARNING!! If you choose to rename anything in this template, please make sure you update all the "!Ref" value.
 
 Parameters:
-  CidrBlockAssignment: # parameter name
-    Description: Will assign a CidrBlock to your vpc and subnets depending on your AllowedValue choice
-    Type: String # will prompt you to select the value it will refer to for the cidrblock
-    Default: development
-    AllowedValues: [development, test, production]
+  CidrBlockAssignment:
+    Description: Will assign a CidrBlock to your vpc and subnets depending on your
+      AllowedValue choice
+    Type: String
+    Default: test
+    AllowedValues:
+    - development
+    - test
+    - production
     ConstraintDescription: must be development or test or production
-
-  VpcTenancy: # parameter name
-    Type: String # will prompt you to select a default or dedicated host server. set on 'Default' by default
+  VpcTenancy:
+    Type: String
     Default: default
     AllowedValues:
-      - default
-      - dedicated
-  VpcTagKey: # parameter name
+    - default
+    - dedicated
+  VpcTagKey:
     Description: Custom vpc tag key
-    Type: String # will prompt you to input a key tag for your vpc (exp: Key=Name)
+    Type: String
     Default: Name
-  VpcTagValue: # parameter name
+  VpcTagValue:
     Description: Custom vpc tag value
-    Type: String # will prompt you to input a key value for your vpc (exp: Value=production-vpc)
-    Default: test-vpc
-
-  PublicSubnet1AZ: # parameter name
-    Description: Select the AZ for this subnet
-    Type: AWS::EC2::AvailabilityZone::Name # will prompt you to select an AZ.
-    Default: us-east-1a
-
-  PublicSubnet2AZ: # parameter name
+    Type: String
+    Default: vpc-pipeline
+  PublicSubnet1AZ:
     Description: Select the AZ for this subnet
     Type: AWS::EC2::AvailabilityZone::Name
-    Default: us-east-1b
-
-  PrivateSubnet1AZ: # parameter name
+  PublicSubnet2AZ:
     Description: Select the AZ for this subnet
     Type: AWS::EC2::AvailabilityZone::Name
-    Default: us-east-1c
-
-  PrivateSubnet2AZ: # parameter name
+  PublicSubnet3AZ:
     Description: Select the AZ for this subnet
     Type: AWS::EC2::AvailabilityZone::Name
-    Default: us-east-1d
+  PublicSubnet4AZ:
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+  PrivateSubnet1AZ:
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+  PrivateSubnet2AZ:
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+  PrivateSubnet3AZ:
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
+  PrivateSubnet4AZ:
+    Description: Select the AZ for this subnet
+    Type: AWS::EC2::AvailabilityZone::Name
 
 Mappings:
   VpcEnvironmentMap: # map name
@@ -66,33 +73,65 @@ Mappings:
 
   PubSub1CidrBlockMap: # map name
     development: # will assign this cdirblock to this subnet if value 'development' is selected in CidrBlockAssignment parameter'
-      CidrBlock: 192.168.0.0/22
+      CidrBlock: 192.168.0.0/23
     test: # will assign this cdirblock to this subnet if value 'test' is selected in CidrBlockAssignment parameter'
-      CidrBlock: 10.0.0.0/18
+      CidrBlock: 10.0.0.0/19
     production: # will assign this cdirblock to this subnet if value 'production' is selected in CidrBlockAssignment parameter'
-      CidrBlock: 10.0.0.0/22
+      CidrBlock: 10.0.0.0/23
 
   PubSub2CidrBlockMap: # map name
     development:
-      CidrBlock: 192.168.4.0/22
+      CidrBlock: 192.168.2.0/23
     test:
-      CidrBlock: 10.0.64.0/18
+      CidrBlock: 10.0.32.0/19
     production:
-      CidrBlock: 10.0.4.0/22
+      CidrBlock: 10.0.2.0/23
+
+  PubSub3CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.4.0/23
+    test:
+      CidrBlock: 10.0.64.0/19
+    production:
+      CidrBlock: 10.0.4.0/23
+
+  PubSub4CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.6.0/23
+    test:
+      CidrBlock: 10.0.96.0/19
+    production:
+      CidrBlock: 10.0.6.0/23
 
   PrivSub1CidrBlockMap: # map name
     development:
-      CidrBlock: 192.168.8.0/22
+      CidrBlock: 192.168.8.0/23
     test:
-      CidrBlock: 10.0.128.0/18
+      CidrBlock: 10.0.128.0/19
     production:
-      CidrBlock: 10.0.8.0/22
+      CidrBlock: 10.0.8.0/23
 
   PrivSub2CidrBlockMap: # map name
     development:
-      CidrBlock: 192.168.12.0/22
+      CidrBlock: 192.168.10.0/23
     test:
-      CidrBlock: 10.0.192.0/18
+      CidrBlock: 10.0.160.0/19
+    production:
+      CidrBlock: 10.0.10.0/23
+
+  PrivSub3CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.12.0/23
+    test:
+      CidrBlock: 10.0.192.0/19
+    production:
+      CidrBlock: 10.0.12.0/23
+
+  PrivSub4CidrBlockMap: # map name
+    development:
+      CidrBlock: 192.168.14.0/23
+    test:
+      CidrBlock: 10.0.224.0/19
     production:
       CidrBlock: 10.0.14.0/23
 
@@ -130,6 +169,28 @@ Resources:
           Value: PubSub2
       VpcId: !Ref VPC 
 
+  PublicSubnet3: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PublicSubnet3AZ
+      CidrBlock: !FindInMap [PubSub3CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: True
+      Tags:
+        - Key: Name
+          Value: PubSub3
+      VpcId: !Ref VPC 
+
+  PublicSubnet4: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PublicSubnet4AZ
+      CidrBlock: !FindInMap [PubSub4CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: True
+      Tags:
+        - Key: Name
+          Value: PubSub4
+      VpcId: !Ref VPC 
+
   PrivateSubnet1: # resource name
     Type: AWS::EC2::Subnet
     Properties: 
@@ -150,6 +211,28 @@ Resources:
       Tags:
         - Key: Name
           Value: PrivSub2
+      VpcId: !Ref VPC
+
+  PrivateSubnet3: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PrivateSubnet3AZ
+      CidrBlock: !FindInMap [PrivSub3CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: False
+      Tags:
+        - Key: Name
+          Value: PrivSub3
+      VpcId: !Ref VPC
+
+  PrivateSubnet4: # resource name
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref PrivateSubnet4AZ
+      CidrBlock: !FindInMap [PrivSub4CidrBlockMap, !Ref CidrBlockAssignment, CidrBlock]
+      MapPublicIpOnLaunch: False
+      Tags:
+        - Key: Name
+          Value: PrivSub4
       VpcId: !Ref VPC
 
   IGW: # resource name
@@ -188,6 +271,16 @@ Resources:
     Properties:
       SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
+  PublicSubnet3RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet4RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet4
+      RouteTableId: !Ref PublicRouteTable
 
   PrivateRouteTable: # resource name
     Type: AWS::EC2::RouteTable
@@ -205,6 +298,16 @@ Resources:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet3RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet4RouteTableAssociation: # resource name
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet4
       RouteTableId: !Ref PrivateRouteTable
 
   PublicNacl: # resource name
@@ -240,6 +343,16 @@ Resources:
     Type: 'AWS::EC2::SubnetNetworkAclAssociation'
     Properties:
       SubnetId: !Ref PublicSubnet2
+      NetworkAclId: !Ref PublicNacl
+  PublicSubnet3NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      NetworkAclId: !Ref PublicNacl
+  PublicSubnet4NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet4
       NetworkAclId: !Ref PublicNacl
 
   PrivateNacl: # resource name
@@ -279,6 +392,16 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateSubnet2
       NetworkAclId: !Ref PrivateNacl
+  PrivSubnet3NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      NetworkAclId: !Ref PrivateNacl
+  PrivSubnet4NaclAssociation: # resource name
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet4
+      NetworkAclId: !Ref PrivateNacl
 
 Outputs:
   VPC: # output name
@@ -299,6 +422,18 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-pubsub2' # this entry with pseudo parameter will use the stack name combine with '-pubsub2' as the value
 
+  PublicSubnet3: # output name
+    Description: The subnet ID to use for public web servers
+    Value: !Ref PublicSubnet3
+    Export:
+      Name: !Sub '${AWS::StackName}-pubsub3'
+
+  PublicSubnet4: # output name
+    Description: The subnet ID to use for public web servers
+    Value: !Ref PublicSubnet4
+    Export:
+      Name: !Sub '${AWS::StackName}-pubsub4'
+
   PrivateSubnet1: # output name
     Description: The subnet ID to use for private web servers
     Value: !Ref PrivateSubnet1
@@ -311,4 +446,15 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-privsub2' # this entry with pseudo parameter will use the stack name combine with '-privsub2' as the value
 
+  PrivateSubnet3: # output name
+    Description: The subnet ID to use for private web servers
+    Value: !Ref PublicSubnet3
+    Export:
+      Name: !Sub '${AWS::StackName}-privsub3'
+
+  PrivateSubnet4: # output name
+    Description: The subnet ID to use for private web servers
+    Value: !Ref PublicSubnet4
+    Export:
+      Name: !Sub '${AWS::StackName}-privsub4'
 # feel free to rename any parameters name, map name, resource name and output name. but before make sure you read the !!WARNING!! in the TEMPLATE DESCRPTION
